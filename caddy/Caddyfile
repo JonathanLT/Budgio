@@ -1,0 +1,4 @@
+budgio.local {
+  reverse_proxy /api/* budgio-api:3001
+  reverse_proxy * budgio-web:3000
+}

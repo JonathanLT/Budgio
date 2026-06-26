@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Variables de thème ──────────────────────────────────────── */
+:root {
+  --c-bg:      #f9fafb;
+  --c-surface: #ffffff;
+  --c-text:    #111827;
+  --c-muted:   #6b7280;
+  --c-border:  #e5e7eb;
+  --c-accent:  #16a34a;
+  --c-accent2: #15803d;
+  --c-fg:      #ffffff;
+}
+
+html.theme-sombre {
+  --c-bg:      #030712;
+  --c-surface: #111827;
+  --c-text:    #f9fafb;
+  --c-muted:   #9ca3af;
+  --c-border:  #374151;
+  --c-accent:  #22c55e;
+  --c-accent2: #16a34a;
+  --c-fg:      #000000;
+  color-scheme: dark;
+}
+
+html.theme-hc-clair {
+  --c-bg:      #ffffff;
+  --c-surface: #eeeeee;
+  --c-text:    #000000;
+  --c-muted:   #222222;
+  --c-border:  #000000;
+  --c-accent:  #0000cc;
+  --c-accent2: #0000aa;
+  --c-fg:      #ffffff;
+}
+
+html.theme-hc-sombre {
+  --c-bg:      #000000;
+  --c-surface: #111111;
+  --c-text:    #ffffff;
+  --c-muted:   #cccccc;
+  --c-border:  #ffffff;
+  --c-accent:  #ffff00;
+  --c-accent2: #dddd00;
+  --c-fg:      #000000;
+  color-scheme: dark;
+}
+
+html.theme-matrix {
+  --c-bg:      #0a0a0a;
+  --c-surface: #001200;
+  --c-text:    #00ff41;
+  --c-muted:   #00aa2a;
+  --c-border:  #003a00;
+  --c-accent:  #00ff41;
+  --c-accent2: #00cc33;
+  --c-fg:      #000000;
+  color-scheme: dark;
+}
+
+html.theme-rainbow {
+  --c-bg:      #fdf4ff;
+  --c-surface: #ffffff;
+  --c-text:    #2d0060;
+  --c-muted:   #7e22ce;
+  --c-border:  #d946ef;
+  --c-accent:  #9333ea;
+  --c-accent2: #7e22ce;
+  --c-fg:      #ffffff;
+}
+
+/* ── Base ────────────────────────────────────────────────────── */
+@layer base {
+  body {
+    background-color: var(--c-bg);
+    color: var(--c-text);
+    @apply antialiased;
+  }
+
+  /* Empêche le zoom automatique d'iOS Safari sur les champs de saisie */
+  input, select, textarea {
+    font-size: 1rem;
+  }
+}

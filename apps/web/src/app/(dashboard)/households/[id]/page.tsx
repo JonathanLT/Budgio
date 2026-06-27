@@ -10,6 +10,7 @@ import { MembersPanel } from './MembersPanel';
 import { MovementsPanel } from './MovementsPanel';
 import { FixedPanel } from './FixedPanel';
 import { StatsPanel } from './StatsPanel';
+import { GoalsPanel } from './GoalsPanel';
 
 
 interface HouseholdDetail {
@@ -24,7 +25,7 @@ export interface Member {
   user: { id: string; name: string; email: string; avatarUrl: string | null };
 }
 
-type Tab = 'movements' | 'fixed' | 'stats' | 'members';
+type Tab = 'movements' | 'fixed' | 'goals' | 'stats' | 'members';
 
 export default function HouseholdPage() {
   const { token, loading } = useAuth();
@@ -58,6 +59,7 @@ export default function HouseholdPage() {
   const TABS: { key: Tab; label: string }[] = [
     { key: 'movements', label: 'Mouvements' },
     { key: 'fixed', label: 'Fixe' },
+    { key: 'goals', label: 'Objectifs' },
     { key: 'stats', label: 'Statistiques' },
     { key: 'members', label: `Membres (${household.members.length})` },
   ];
@@ -119,6 +121,9 @@ export default function HouseholdPage() {
       )}
       {tab === 'fixed' && token && (
         <FixedPanel householdId={household.id} token={token} categories={categories} />
+      )}
+      {tab === 'goals' && token && (
+        <GoalsPanel householdId={household.id} token={token} />
       )}
       {tab === 'stats' && token && (
         <StatsPanel householdId={household.id} token={token} />

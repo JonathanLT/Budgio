@@ -121,6 +121,30 @@ export interface HouseholdStats {
   topIncomeCategories: CategoryStat[];
 }
 
+export interface GoalContribution {
+  id: string;
+  goalId: string;
+  amount: number;
+  note: string | null;
+  date: string;
+  createdAt: string;
+}
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  deadline: string | null;
+  isCompleted: boolean;
+  savedAmount: number;
+  percent: number;
+  monthlyRecommended: number | null;
+  contributions: GoalContribution[];
+  createdBy: Pick<User, 'id' | 'name'>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RecurringTransaction {
   id: string;
   label: string;

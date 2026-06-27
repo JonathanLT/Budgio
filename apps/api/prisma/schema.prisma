@@ -21,6 +21,7 @@ model User {
   transactions          Transaction[]
   recurringTransactions RecurringTransaction[]
   householdLogs         HouseholdLog[]
+  savingsGoals          SavingsGoal[]
 }
 
 model RefreshToken {
@@ -43,6 +44,7 @@ model Household {
   categories            Category[]
   recurringTransactions RecurringTransaction[]
   logs                  HouseholdLog[]
+  savingsGoals          SavingsGoal[]
 }
 
 model HouseholdMember {
@@ -123,6 +125,31 @@ model HouseholdLog {
   user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([householdId, createdAt(sort: Desc)])
+}
+
+model SavingsGoal {
+  id            String             @id @default(cuid())
+  householdId   String
+  name          String
+  targetAmount  Float
+  deadline      DateTime?
+  isCompleted   Boolean            @default(false)
+  createdById   String
+  household     Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy     User               @relation(fields: [createdById], references: [id])
+  contributions GoalContribution[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model GoalContribution {
+  id        String      @id @default(cuid())
+  goalId    String
+  amount    Float
+  note      String?
+  date      DateTime    @default(now())
+  goal      SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
 }
 
 enum Role {

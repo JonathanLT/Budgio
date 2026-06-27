@@ -150,4 +150,16 @@ export const api = {
     apiFetch(`/households/${householdId}/recurring/${id}`, token, { method: 'DELETE' }),
   replayRecurringMonth: (token: string, householdId: string) =>
     apiFetch(`/households/${householdId}/recurring/replay-month`, token, { method: 'POST' }),
+
+  // Savings goals
+  getGoals: (token: string, householdId: string) =>
+    apiFetch(`/households/${householdId}/goals`, token),
+  createGoal: (token: string, householdId: string, data: { name: string; targetAmount: number; deadline?: string }) =>
+    apiFetch(`/households/${householdId}/goals`, token, { method: 'POST', body: JSON.stringify(data) }),
+  updateGoal: (token: string, householdId: string, goalId: string, data: { name?: string; targetAmount?: number; deadline?: string | null; isCompleted?: boolean }) =>
+    apiFetch(`/households/${householdId}/goals/${goalId}`, token, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteGoal: (token: string, householdId: string, goalId: string) =>
+    apiFetch(`/households/${householdId}/goals/${goalId}`, token, { method: 'DELETE' }),
+  contributeGoal: (token: string, householdId: string, goalId: string, data: { amount: number; note?: string }) =>
+    apiFetch(`/households/${householdId}/goals/${goalId}/contribute`, token, { method: 'POST', body: JSON.stringify(data) }),
 };

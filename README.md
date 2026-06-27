@@ -167,6 +167,78 @@ Fréquences disponibles : `DAILY`, `WEEKDAYS`, `WEEKLY`, `MONTHLY`, `YEARLY`.
 
 ---
 
+## Roadmap
+
+### Budgets par catégorie ("enveloppes")
+
+Définir un plafond mensuel par catégorie et visualiser l'avancement en temps réel.
+
+**Objectif** : passer d'un outil de suivi passif à un outil de pilotage actif — savoir *avant* de dépasser, pas après.
+
+**Modèle de données**
+
+```prisma
+model CategoryBudget {
+  id          String    @id @default(cuid())
+  householdId String
+  categoryId  String
+  amount      Float     // plafond mensuel en €
+  month       Int?      // null = applicable tous les mois
+  year        Int?
+  household   Household @relation(...)
+  category    Category  @relation(...)
+  @@unique([householdId, categoryId, month, year])
+}
+```
+
+**API**
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| PUT | `/households/:id/categories/:catId/budget` | Définir / mettre à jour le budget mensuel |
+| DELETE | `/households/:id/categories/:catId/budget` | Supprimer le budget |
+
+Le endpoint `/transactions/dashboard` sera enrichi avec `budget` et `spent` par catégorie.
+
+**UI**
+
+Barre de progression par catégorie dans le tableau de bord :
+
+```
+🛒 Courses    ████████░░  420 / 500 €   (84%)
+🍽️ Restos     ██████████  198 / 150 €   ⚠️ dépassé
+```
+
+### Import de relevé bancaire (CSV)
+
+Uploader le CSV exporté depuis sa banque pour éviter la saisie manuelle des transactions.
+
+**Flux**
+
+```
+1. Upload CSV (Boursorama, LCL, Revolut…)
+2. API parse + normalise (date, libellé, montant)
+3. Suggestion de catégorie par matching sur le libellé
+   (ex. "LIDL" → 🛒 Courses, "NETFLIX" → 📱 Abonnements)
+4. Aperçu côté UI — tableau modifiable avant import
+5. Confirmation → création en masse des transactions
+```
+
+**API**
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/households/:id/transactions/import/preview` | Parse le CSV, retourne les lignes + catégories suggérées |
+| POST | `/households/:id/transactions/import/confirm` | Insère les transactions validées (`createMany`) |
+
+Les doublons sont détectés par empreinte `(date + montant + libellé)` avant insertion.
+
+**UI**
+
+Bouton "Importer un relevé" dans `MovementsPanel` → modal avec tableau ligne par ligne permettant d'ajuster la catégorie avant validation.
+
+---
+
 ## Démarrage local
 
 ```bash

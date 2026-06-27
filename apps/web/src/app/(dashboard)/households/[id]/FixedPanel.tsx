@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { AddRecurringModal } from './AddRecurringModal';
@@ -45,6 +45,8 @@ export function FixedPanel({ householdId, token, categories }: Props) {
   const [editingRt, setEditingRt] = useState<RecurringTransaction | null>(null);
   const [replaying, setReplaying] = useState(false);
   const [replayResult, setReplayResult] = useState<number | null>(null);
+  const dragId = useRef<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -57,6 +59,39 @@ export function FixedPanel({ householdId, token, categories }: Props) {
   async function handleDelete(id: string) {
     await api.deleteRecurring(token, householdId, id);
     setRecurring((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function handleDragStart(id: string) {
+    dragId.current = id;
+  }
+
+  function handleDragOver(e: React.DragEvent, id: string) {
+    e.preventDefault();
+    if (dragId.current !== id) setDragOverId(id);
+  }
+
+  function handleDrop(targetId: string) {
+    const fromId = dragId.current;
+    dragId.current = null;
+    setDragOverId(null);
+    if (!fromId || fromId === targetId) return;
+
+    setRecurring((prev) => {
+      const next = [...prev];
+      const fromIdx = next.findIndex((r) => r.id === fromId);
+      const toIdx = next.findIndex((r) => r.id === targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      const items = next.map((r, i) => ({ id: r.id, order: i }));
+      void api.reorderRecurring(token, householdId, items);
+      return next;
+    });
+  }
+
+  function handleDragEnd() {
+    dragId.current = null;
+    setDragOverId(null);
   }
 
   async function handleReplay() {
@@ -76,6 +111,12 @@ export function FixedPanel({ householdId, token, categories }: Props) {
 
   const now = new Date();
   const monthLabel = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  const totalIn  = recurring.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0);
+  const totalOut = recurring.filter((r) => r.amount < 0).reduce((s, r) => s + Math.abs(r.amount), 0);
+  const total    = totalIn + totalOut;
+  const pctIn    = total > 0 ? Math.round((totalIn / total) * 100) : 50;
+  const pctOut   = 100 - pctIn;
 
   return (
     <div className="space-y-4">
@@ -110,6 +151,34 @@ export function FixedPanel({ householdId, token, categories }: Props) {
         </div>
       </div>
 
+      {recurring.length > 0 && (
+        <div className="bg-theme-surface rounded-xl border border-theme-border px-5 py-4 space-y-3">
+          <div className="flex items-center justify-between text-xs font-medium">
+            <span className="text-green-600">↑ Entrées — {formatCurrency(totalIn)}</span>
+            <span className="text-red-500">Sorties ↓ — {formatCurrency(totalOut)}</span>
+          </div>
+          <div className="flex h-3 rounded-full overflow-hidden">
+            <div
+              className="bg-green-500 transition-all duration-500"
+              style={{ width: `${pctIn}%` }}
+              title={`Entrées : ${pctIn}%`}
+            />
+            <div
+              className="bg-red-400 transition-all duration-500"
+              style={{ width: `${pctOut}%` }}
+              title={`Sorties : ${pctOut}%`}
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs text-theme-muted">
+            <span>{pctIn}%</span>
+            <span className={`font-semibold ${totalIn >= totalOut ? 'text-green-600' : 'text-red-500'}`}>
+              {totalIn >= totalOut ? '+' : '-'}{formatCurrency(Math.abs(totalIn - totalOut))} net
+            </span>
+            <span>{pctOut}%</span>
+          </div>
+        </div>
+      )}
+
       {replayResult !== null && (
         <div className={`text-sm px-4 py-3 rounded-xl border ${
           replayResult === 0
@@ -127,8 +196,17 @@ export function FixedPanel({ householdId, token, categories }: Props) {
           {recurring.map((rt) => {
             const isIn = rt.amount > 0;
             return (
-              <div key={rt.id} className="flex items-center justify-between px-5 py-4 group">
+              <div
+                key={rt.id}
+                draggable
+                onDragStart={() => handleDragStart(rt.id)}
+                onDragOver={(e) => handleDragOver(e, rt.id)}
+                onDrop={() => handleDrop(rt.id)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center justify-between px-5 py-4 group transition-colors ${dragOverId === rt.id ? 'bg-theme-bg' : ''}`}
+              >
                 <div className="flex items-center gap-4">
+                  <span className="text-theme-muted cursor-grab active:cursor-grabbing select-none opacity-0 group-hover:opacity-100 transition-opacity" title="Réordonner">⠿</span>
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg ${
                     isIn ? 'bg-green-50 dark:bg-green-900/30 text-green-500' : 'bg-red-50 dark:bg-red-900/30 text-red-400'
                   }`}>
@@ -161,7 +239,7 @@ export function FixedPanel({ householdId, token, categories }: Props) {
                   <span className={`font-semibold ${isIn ? 'text-green-600' : 'text-red-500'}`}>
                     {isIn ? '+' : ''}{formatCurrency(rt.amount)}
                   </span>
-                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-all">
+                  <div className="sm:opacity-0 sm:group-hover:opacity-100 flex items-center gap-1.5 transition-all">
                     <button
                       onClick={() => setEditingRt(rt)}
                       className="text-theme-muted hover:text-brand-500 transition-colors text-sm"

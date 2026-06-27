@@ -1,5 +1,12 @@
 export type HouseholdRole = 'ADMIN' | 'MEMBER';
 
+export interface UserSuggestion {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -38,6 +45,7 @@ export interface Transaction {
   attachmentUrl: string | null;
   isRecurring: boolean;
   recurringCron: string | null;
+  goalId: string | null;
   createdBy: Pick<User, 'id' | 'name'>;
   createdAt: string;
   updatedAt: string;
@@ -119,6 +127,31 @@ export interface HouseholdStats {
   biggestIncome: StatsTransaction | null;
   topExpenseCategories: CategoryStat[];
   topIncomeCategories: CategoryStat[];
+}
+
+export interface GoalContribution {
+  id: string;
+  goalId: string;
+  transactionId: string | null;
+  amount: number;
+  note: string | null;
+  date: string;
+  createdAt: string;
+}
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  deadline: string | null;
+  isCompleted: boolean;
+  savedAmount: number;
+  percent: number;
+  monthlyRecommended: number | null;
+  contributions: GoalContribution[];
+  createdBy: Pick<User, 'id' | 'name'>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface RecurringTransaction {

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LogService } from '../log/log.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -15,8 +16,21 @@ export class CategoriesService {
     await this.assertMember(householdId, userId);
     return this.prisma.category.findMany({
       where: { householdId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
     });
+  }
+
+  async reorder(householdId: string, userId: string, dto: ReorderCategoriesDto) {
+    await this.assertMember(householdId, userId);
+    await this.prisma.$transaction(
+      dto.items.map((item) =>
+        this.prisma.category.updateMany({
+          where: { id: item.id, householdId },
+          data: { order: item.order },
+        }),
+      ),
+    );
+    return this.findAll(householdId, userId);
   }
 
   async create(householdId: string, userId: string, dto: CreateCategoryDto) {

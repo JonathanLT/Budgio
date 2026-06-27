@@ -275,6 +275,7 @@ export function MovementsPanel({ householdId, token }: Props) {
                       <span className="text-xs text-theme-muted opacity-70">{formatDate(tx.date)}</span>
                       <span className="text-xs text-theme-muted opacity-70">{tx.createdBy.name}</span>
                       {tx.isRecurring && <span className="text-xs text-blue-400">↺</span>}
+                      {tx.goalId && <span className="text-xs text-brand-500" title="Lié à un objectif d'épargne">🎯</span>}
                       {tx.attachmentUrl && (
                         <a href={tx.attachmentUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline">
                           📎
@@ -289,14 +290,14 @@ export function MovementsPanel({ householdId, token }: Props) {
                   </span>
                   <button
                     onClick={() => setEditingTx(tx)}
-                    className="opacity-0 group-hover:opacity-100 text-theme-muted hover:text-brand-600 transition-all"
+                    className="sm:opacity-0 sm:group-hover:opacity-100 text-theme-muted hover:text-brand-600 transition-all"
                     title="Modifier"
                   >
                     ✏️
                   </button>
                   <button
                     onClick={() => deleteTransaction(tx.id)}
-                    className="opacity-0 group-hover:opacity-100 text-theme-muted hover:text-red-500 transition-all"
+                    className="sm:opacity-0 sm:group-hover:opacity-100 text-theme-muted hover:text-red-500 transition-all"
                     title="Supprimer"
                   >
                     ✕

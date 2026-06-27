@@ -21,20 +21,20 @@ export function Navbar() {
           <span>💰</span>
           <span>Budgio</span>
         </Link>
-        <nav className="flex items-center gap-6 text-sm">
-          <Link href="/households" className="text-theme-muted hover:text-theme-text transition-colors">
+        <nav className="flex items-center gap-4 sm:gap-6 text-sm">
+          <Link href="/households" className="hidden sm:block text-theme-muted hover:text-theme-text transition-colors">
             Mes foyers
           </Link>
           <Link href="/profile" className="flex items-center gap-2 text-theme-muted hover:text-theme-text transition-colors">
             {user?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.avatarUrl} alt={user.name} className="w-6 h-6 rounded-full object-cover" />
+              <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full object-cover" />
             ) : (
-              <div className="w-6 h-6 rounded-full bg-brand-50 flex items-center justify-center text-xs font-bold text-brand-600">
+              <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center text-sm font-bold text-brand-600">
                 {user?.name?.[0] ?? '…'}
               </div>
             )}
-            Profil
+            <span className="hidden sm:inline">Profil</span>
           </Link>
         </nav>
       </div>

@@ -134,6 +134,20 @@ export class HouseholdsService {
     void this.log.log(householdId, adminId, 'MEMBER_REMOVED', { memberId });
   }
 
+  async memberSuggestions(householdId: string, userId: string) {
+    await this.assertAdmin(householdId, userId);
+    const existing = await this.prisma.householdMember.findMany({
+      where: { householdId },
+      select: { userId: true },
+    });
+    const excludedIds = existing.map((m) => m.userId);
+    return this.prisma.user.findMany({
+      where: { id: { notIn: excludedIds } },
+      select: { id: true, name: true, email: true, avatarUrl: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findHistory(householdId: string, userId: string) {
     await this.assertAdmin(householdId, userId);
     return this.log.findAll(householdId);

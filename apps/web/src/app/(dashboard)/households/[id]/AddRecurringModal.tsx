@@ -78,7 +78,7 @@ export function AddRecurringModal({ token, householdId, categories, initialData,
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-theme-surface rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+      <div className="bg-theme-surface rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 overflow-hidden">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-lg text-theme-text">
             {isEdit ? 'Modifier le mouvement fixe' : 'Nouveau mouvement fixe'}
@@ -120,8 +120,8 @@ export function AddRecurringModal({ token, householdId, categories, initialData,
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="min-w-0">
               <label className="block text-sm font-medium text-theme-text mb-1">Montant (€)</label>
               <input
                 type="number"
@@ -134,7 +134,7 @@ export function AddRecurringModal({ token, householdId, categories, initialData,
                 required
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-medium text-theme-text mb-1">
                 Catégorie <span className="text-theme-muted font-normal">(opt.)</span>
               </label>
@@ -195,8 +195,8 @@ export function AddRecurringModal({ token, householdId, categories, initialData,
           )}
 
           {frequency === 'YEARLY' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-theme-text mb-1">Jour</label>
                 <input
                   type="number"
@@ -207,7 +207,7 @@ export function AddRecurringModal({ token, householdId, categories, initialData,
                   className="w-full border border-theme-border bg-theme-surface text-theme-text rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-theme-text mb-1">Mois</label>
                 <select
                   value={month}

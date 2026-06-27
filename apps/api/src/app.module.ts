@@ -11,6 +11,7 @@ import { HouseholdsModule } from './households/households.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { RecurringModule } from './recurring/recurring.module';
+import { GoalsModule } from './goals/goals.module';
 import { LogModule } from './log/log.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { LogModule } from './log/log.module';
     CategoriesModule,
     TransactionsModule,
     RecurringModule,
+    GoalsModule,
     LogModule,
   ],
   providers: [

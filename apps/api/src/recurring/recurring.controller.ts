@@ -4,6 +4,7 @@ import {
   Post,
   Patch,
   Delete,
+  Put,
   Body,
   Param,
   Req,
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RecurringService } from './recurring.service';
 import { CreateRecurringDto } from './dto/create-recurring.dto';
 import { UpdateRecurringDto } from './dto/update-recurring.dto';
+import { ReorderRecurringDto } from './dto/reorder-recurring.dto';
 
 @ApiTags('recurring')
 @ApiBearerAuth()
@@ -52,6 +54,16 @@ export class RecurringController {
     @Param('householdId') householdId: string,
   ) {
     return this.recurringService.replayMonth(householdId, (req.user as User).id);
+  }
+
+  @Put('reorder')
+  @ApiOperation({ summary: 'Réordonner les mouvements fixes' })
+  reorder(
+    @Req() req: Request,
+    @Param('householdId') householdId: string,
+    @Body() dto: ReorderRecurringDto,
+  ) {
+    return this.recurringService.reorder(householdId, (req.user as User).id, dto);
   }
 
   @Patch(':id')

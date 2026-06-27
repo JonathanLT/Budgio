@@ -34,4 +34,9 @@ export class CreateTransactionDto {
   @IsUrl()
   @IsOptional()
   attachmentUrl?: string;
+
+  @ApiPropertyOptional({ description: "ID d'un objectif d'épargne — crée une contribution automatique" })
+  @IsString()
+  @IsOptional()
+  goalId?: string;
 }

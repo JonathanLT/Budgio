@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Req, UseGuards, HttpCode, HttpStatus,
+  Body, Param, Req, UseGuards, HttpCode, HttpStatus, Put,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -9,6 +9,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 
 @ApiTags('categories')
 @ApiBearerAuth()
@@ -38,6 +39,12 @@ export class CategoriesController {
     @Body() dto: UpdateCategoryDto,
   ) {
     return this.categoriesService.update(householdId, categoryId, (req.user as User).id, dto);
+  }
+
+  @Put('reorder')
+  @ApiOperation({ summary: 'Réordonner les catégories' })
+  reorder(@Req() req: Request, @Param('householdId') householdId: string, @Body() dto: ReorderCategoriesDto) {
+    return this.categoriesService.reorder(householdId, (req.user as User).id, dto);
   }
 
   @Delete(':categoryId')

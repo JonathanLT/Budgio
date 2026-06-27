@@ -5,6 +5,7 @@ import { HouseholdsService } from '../households/households.service';
 import { LogService } from '../log/log.service';
 import { CreateRecurringDto } from './dto/create-recurring.dto';
 import { UpdateRecurringDto } from './dto/update-recurring.dto';
+import { ReorderRecurringDto } from './dto/reorder-recurring.dto';
 import type { RecurringTransaction } from '@prisma/client';
 
 const INCLUDE = {
@@ -27,8 +28,21 @@ export class RecurringService {
     return this.prisma.recurringTransaction.findMany({
       where: { householdId, isActive: true },
       include: INCLUDE,
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
     });
+  }
+
+  async reorder(householdId: string, userId: string, dto: ReorderRecurringDto) {
+    await this.households.assertMember(householdId, userId);
+    await this.prisma.$transaction(
+      dto.items.map((item) =>
+        this.prisma.recurringTransaction.updateMany({
+          where: { id: item.id, householdId },
+          data: { order: item.order },
+        }),
+      ),
+    );
+    return this.findAll(householdId, userId);
   }
 
   async create(householdId: string, userId: string, dto: CreateRecurringDto) {

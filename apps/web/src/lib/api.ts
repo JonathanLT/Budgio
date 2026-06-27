@@ -100,6 +100,8 @@ export const api = {
     apiFetch(`/households/${id}/deactivate`, token, { method: 'PATCH' }),
 
   // Members
+  getMemberSuggestions: (token: string, id: string) =>
+    apiFetch(`/households/${id}/members/suggestions`, token),
   inviteMember: (token: string, id: string, email: string) =>
     apiFetch(`/households/${id}/members`, token, { method: 'POST', body: JSON.stringify({ email }) }),
   updateMemberRole: (token: string, id: string, memberId: string, role: string) =>
@@ -116,6 +118,8 @@ export const api = {
     apiFetch(`/households/${householdId}/categories/${categoryId}`, token, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteCategory: (token: string, householdId: string, categoryId: string) =>
     apiFetch(`/households/${householdId}/categories/${categoryId}`, token, { method: 'DELETE' }),
+  reorderCategories: (token: string, householdId: string, items: { id: string; order: number }[]) =>
+    apiFetch(`/households/${householdId}/categories/reorder`, token, { method: 'PUT', body: JSON.stringify({ items }) }),
 
   // Transactions
   getTransactions: (token: string, householdId: string, year?: number, month?: number) => {
@@ -150,4 +154,20 @@ export const api = {
     apiFetch(`/households/${householdId}/recurring/${id}`, token, { method: 'DELETE' }),
   replayRecurringMonth: (token: string, householdId: string) =>
     apiFetch(`/households/${householdId}/recurring/replay-month`, token, { method: 'POST' }),
+  reorderRecurring: (token: string, householdId: string, items: { id: string; order: number }[]) =>
+    apiFetch(`/households/${householdId}/recurring/reorder`, token, { method: 'PUT', body: JSON.stringify({ items }) }),
+
+  // Savings goals
+  getGoals: (token: string, householdId: string) =>
+    apiFetch(`/households/${householdId}/goals`, token),
+  createGoal: (token: string, householdId: string, data: { name: string; targetAmount: number; deadline?: string }) =>
+    apiFetch(`/households/${householdId}/goals`, token, { method: 'POST', body: JSON.stringify(data) }),
+  updateGoal: (token: string, householdId: string, goalId: string, data: { name?: string; targetAmount?: number; deadline?: string | null; isCompleted?: boolean }) =>
+    apiFetch(`/households/${householdId}/goals/${goalId}`, token, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteGoal: (token: string, householdId: string, goalId: string) =>
+    apiFetch(`/households/${householdId}/goals/${goalId}`, token, { method: 'DELETE' }),
+  reorderGoals: (token: string, householdId: string, items: { id: string; order: number }[]) =>
+    apiFetch(`/households/${householdId}/goals/reorder`, token, { method: 'PUT', body: JSON.stringify({ items }) }),
+  contributeGoal: (token: string, householdId: string, goalId: string, data: { amount: number; note?: string }) =>
+    apiFetch(`/households/${householdId}/goals/${goalId}/contribute`, token, { method: 'POST', body: JSON.stringify(data) }),
 };

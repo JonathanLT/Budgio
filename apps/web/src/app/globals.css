@@ -79,9 +79,12 @@ html.theme-rainbow {
     color: var(--c-text);
     @apply antialiased;
   }
+}
 
-  /* Empêche le zoom automatique d'iOS Safari sur les champs de saisie */
+/* Hors @layer pour surpasser les utilitaires Tailwind (text-sm etc.)
+   pointer:coarse = écrans tactiles uniquement → desktop non affecté */
+@media (pointer: coarse) {
   input, select, textarea {
-    font-size: 1rem;
+    font-size: 1rem !important;
   }
 }

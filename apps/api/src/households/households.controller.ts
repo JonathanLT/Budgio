@@ -43,6 +43,12 @@ export class HouseholdsController {
     return this.householdsService.deactivate(id, (req.user as User).id);
   }
 
+  @Get(':id/members/suggestions')
+  @ApiOperation({ summary: 'Utilisateurs Budgio non membres du foyer (ADMIN)' })
+  memberSuggestions(@Req() req: Request, @Param('id') id: string) {
+    return this.householdsService.memberSuggestions(id, (req.user as User).id);
+  }
+
   @Post(':id/members')
   @ApiOperation({ summary: 'Inviter un membre (ADMIN)' })
   invite(@Req() req: Request, @Param('id') id: string, @Body() dto: InviteMemberDto) {

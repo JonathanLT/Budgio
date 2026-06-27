@@ -10,6 +10,8 @@ import { MembersPanel } from './MembersPanel';
 import { MovementsPanel } from './MovementsPanel';
 import { FixedPanel } from './FixedPanel';
 import { StatsPanel } from './StatsPanel';
+import { GoalsPanel } from './GoalsPanel';
+import { BottomNav } from '@/components/layout/BottomNav';
 
 
 interface HouseholdDetail {
@@ -24,7 +26,7 @@ export interface Member {
   user: { id: string; name: string; email: string; avatarUrl: string | null };
 }
 
-type Tab = 'movements' | 'fixed' | 'stats' | 'members';
+export type Tab = 'movements' | 'fixed' | 'goals' | 'stats' | 'members';
 
 export default function HouseholdPage() {
   const { token, loading } = useAuth();
@@ -58,12 +60,13 @@ export default function HouseholdPage() {
   const TABS: { key: Tab; label: string }[] = [
     { key: 'movements', label: 'Mouvements' },
     { key: 'fixed', label: 'Fixe' },
+    { key: 'goals', label: 'Objectifs' },
     { key: 'stats', label: 'Statistiques' },
     { key: 'members', label: `Membres (${household.members.length})` },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 sm:pb-0">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-theme-muted">
         <Link href="/households" className="hover:text-theme-text">Mes foyers</Link>
@@ -76,8 +79,8 @@ export default function HouseholdPage() {
         <h1 className="text-2xl font-bold text-theme-text">{household.name}</h1>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-theme-border">
+      {/* Tabs — masqués sur mobile, remplacés par la bottom nav */}
+      <div className="hidden sm:block border-b border-theme-border">
         <nav className="-mb-px flex items-center">
           {TABS.filter((t) => t.key !== 'members' && t.key !== 'stats').map((t) => (
             <button
@@ -120,6 +123,9 @@ export default function HouseholdPage() {
       {tab === 'fixed' && token && (
         <FixedPanel householdId={household.id} token={token} categories={categories} />
       )}
+      {tab === 'goals' && token && (
+        <GoalsPanel householdId={household.id} token={token} />
+      )}
       {tab === 'stats' && token && (
         <StatsPanel householdId={household.id} token={token} />
       )}
@@ -131,6 +137,8 @@ export default function HouseholdPage() {
           onMembersChange={(members) => setHousehold((h) => h ? { ...h, members } : h)}
         />
       )}
+
+      <BottomNav tab={tab} setTab={setTab} />
     </div>
   );
 }

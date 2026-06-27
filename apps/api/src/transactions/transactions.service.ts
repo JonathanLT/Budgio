@@ -188,12 +188,14 @@ export class TransactionsService {
 
   async create(householdId: string, userId: string, dto: CreateTransactionDto) {
     await this.households.assertMember(householdId, userId);
-    const { categoryId, ...rest } = dto;
+    const { categoryId, goalId, ...rest } = dto;
     const isRecurring = rest.isRecurring ?? !!rest.recurringCron;
+
     const tx = await this.prisma.transaction.create({
       data: {
         ...rest,
         ...(categoryId ? { categoryId } : {}),
+        ...(goalId ? { goalId } : {}),
         date: new Date(dto.date),
         isRecurring,
         householdId,
@@ -201,6 +203,20 @@ export class TransactionsService {
       },
       include: INCLUDE,
     });
+
+    if (goalId) {
+      await this.prisma.goalContribution.create({
+        data: {
+          goalId,
+          transactionId: tx.id,
+          amount: Math.abs(dto.amount),
+          note: dto.label,
+          date: new Date(dto.date),
+        },
+      });
+      void this.log.log(householdId, userId, 'GOAL_CONTRIBUTION_FROM_TRANSACTION', { goalId, amount: Math.abs(dto.amount) });
+    }
+
     void this.log.log(householdId, userId, 'TRANSACTION_CREATED', { label: dto.label, amount: dto.amount });
     return tx;
   }

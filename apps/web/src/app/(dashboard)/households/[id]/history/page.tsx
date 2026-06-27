@@ -8,39 +8,47 @@ import { api } from '@/lib/api';
 import type { HouseholdLog } from '@budgio/types';
 
 const EVENT_LABELS: Record<string, string> = {
-  HOUSEHOLD_CREATED:    'Foyer créé',
-  HOUSEHOLD_RENAMED:    'Foyer renommé',
-  HOUSEHOLD_DEACTIVATED:'Foyer désactivé',
-  MEMBER_INVITED:       'Membre invité',
-  MEMBER_REMOVED:       'Membre retiré',
-  MEMBER_ROLE_CHANGED:  'Rôle modifié',
-  TRANSACTION_CREATED:  'Transaction créée',
-  TRANSACTION_UPDATED:  'Transaction modifiée',
-  TRANSACTION_DELETED:  'Transaction supprimée',
-  CATEGORY_CREATED:     'Catégorie créée',
-  CATEGORY_UPDATED:     'Catégorie modifiée',
-  CATEGORY_DELETED:     'Catégorie supprimée',
-  RECURRING_CREATED:    'Mouvement fixe créé',
-  RECURRING_UPDATED:    'Mouvement fixe modifié',
-  RECURRING_DELETED:    'Mouvement fixe désactivé',
+  HOUSEHOLD_CREATED:        'Foyer créé',
+  HOUSEHOLD_RENAMED:        'Foyer renommé',
+  HOUSEHOLD_DEACTIVATED:    'Foyer désactivé',
+  MEMBER_INVITED:           'Membre invité',
+  MEMBER_REMOVED:           'Membre retiré',
+  MEMBER_ROLE_CHANGED:      'Rôle modifié',
+  TRANSACTION_CREATED:      'Transaction créée',
+  TRANSACTION_UPDATED:      'Transaction modifiée',
+  TRANSACTION_DELETED:      'Transaction supprimée',
+  CATEGORY_CREATED:         'Catégorie créée',
+  CATEGORY_UPDATED:         'Catégorie modifiée',
+  CATEGORY_DELETED:         'Catégorie supprimée',
+  RECURRING_CREATED:        'Mouvement fixe créé',
+  RECURRING_UPDATED:        'Mouvement fixe modifié',
+  RECURRING_DELETED:        'Mouvement fixe désactivé',
+  GOAL_CREATED:             'Objectif créé',
+  GOAL_UPDATED:             'Objectif modifié',
+  GOAL_DELETED:             'Objectif supprimé',
+  GOAL_CONTRIBUTION_ADDED:  'Contribution ajoutée',
 };
 
 const EVENT_ICONS: Record<string, string> = {
-  HOUSEHOLD_CREATED:    '🏠',
-  HOUSEHOLD_RENAMED:    '✏️',
-  HOUSEHOLD_DEACTIVATED:'🗑️',
-  MEMBER_INVITED:       '👋',
-  MEMBER_REMOVED:       '👋',
-  MEMBER_ROLE_CHANGED:  '🔑',
-  TRANSACTION_CREATED:  '💳',
-  TRANSACTION_UPDATED:  '💳',
-  TRANSACTION_DELETED:  '💳',
-  CATEGORY_CREATED:     '🏷️',
-  CATEGORY_UPDATED:     '🏷️',
-  CATEGORY_DELETED:     '🏷️',
-  RECURRING_CREATED:    '📌',
-  RECURRING_UPDATED:    '📌',
-  RECURRING_DELETED:    '📌',
+  HOUSEHOLD_CREATED:        '🏠',
+  HOUSEHOLD_RENAMED:        '✏️',
+  HOUSEHOLD_DEACTIVATED:    '🗑️',
+  MEMBER_INVITED:           '👋',
+  MEMBER_REMOVED:           '👋',
+  MEMBER_ROLE_CHANGED:      '🔑',
+  TRANSACTION_CREATED:      '💳',
+  TRANSACTION_UPDATED:      '💳',
+  TRANSACTION_DELETED:      '💳',
+  CATEGORY_CREATED:         '🏷️',
+  CATEGORY_UPDATED:         '🏷️',
+  CATEGORY_DELETED:         '🏷️',
+  RECURRING_CREATED:        '📌',
+  RECURRING_UPDATED:        '📌',
+  RECURRING_DELETED:        '📌',
+  GOAL_CREATED:             '🎯',
+  GOAL_UPDATED:             '🎯',
+  GOAL_DELETED:             '🎯',
+  GOAL_CONTRIBUTION_ADDED:  '💰',
 };
 
 function formatMeta(event: string, meta: Record<string, unknown> | null): string | null {
@@ -60,7 +68,15 @@ function formatMeta(event: string, meta: Record<string, unknown> | null): string
     case 'CATEGORY_UPDATED':
       return meta.label ? String(meta.label) : null;
     case 'RECURRING_CREATED':
+    case 'RECURRING_UPDATED':
       return meta.label ? String(meta.label) : null;
+    case 'GOAL_CREATED':
+    case 'GOAL_UPDATED':
+      return meta.name ? String(meta.name) : null;
+    case 'GOAL_CONTRIBUTION_ADDED':
+      return meta.amount != null
+        ? `+${Number(meta.amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`
+        : null;
     default:
       return null;
   }

@@ -72,12 +72,18 @@ Household
   │     ├── dayOfWeek? / dayOfMonth? / month?
   │     ├── isActive, lastRunDate
   │     └── category? → Category
-  └── Transaction[]
-        ├── amount             (> 0 = entrée, < 0 = sortie)
-        ├── category?          → Category
-        ├── date
-        ├── attachmentUrl?
-        ├── recurring?         → RecurringTransaction
+  ├── Transaction[]
+  │     ├── amount             (> 0 = entrée, < 0 = sortie)
+  │     ├── category?          → Category
+  │     ├── date
+  │     ├── attachmentUrl?
+  │     ├── recurring?         → RecurringTransaction
+  │     ├── goal?              → SavingsGoal (crée une GoalContribution automatique)
+  │     └── createdBy          → User
+  └── SavingsGoal[]
+        ├── name, targetAmount, deadline?
+        ├── isCompleted
+        ├── GoalContribution[] (amount, note?, transactionId?)
         └── createdBy          → User
 ```
 
@@ -112,7 +118,8 @@ Toutes les routes sont préfixées `/api`. Documentation interactive disponible 
 | GET | `/households/:id` | Détails du foyer + membres |
 | PATCH | `/households/:id` | Renommer le foyer (ADMIN) |
 | PATCH | `/households/:id/deactivate` | Désactiver le foyer (ADMIN) |
-| POST | `/households/:id/members` | Inviter un membre par email (ADMIN) |
+| GET | `/households/:id/members/suggestions` | Utilisateurs Budgio non encore membres (ADMIN) |
+| POST | `/households/:id/members` | Inviter un membre (ADMIN) |
 | PATCH | `/households/:id/members/:memberId` | Changer le rôle d'un membre (ADMIN) |
 | DELETE | `/households/:id/members/:memberId` | Retirer un membre (ADMIN) |
 | GET | `/households/:id/history` | Journal d'activité du foyer |
@@ -139,6 +146,8 @@ Toutes les routes sont préfixées `/api`. Documentation interactive disponible 
 
 Le dashboard retourne : `{ openingBalance, totalIn, totalOut, closingBalance, byCategory[] }`.
 
+La création d'une transaction avec `goalId` crée automatiquement une `GoalContribution` du même montant.
+
 ### Mouvements fixes (Recurring)
 
 | Méthode | Route | Description |
@@ -151,6 +160,20 @@ Le dashboard retourne : `{ openingBalance, totalIn, totalOut, closingBalance, by
 
 Fréquences disponibles : `DAILY`, `WEEKDAYS`, `WEEKLY`, `MONTHLY`, `YEARLY`.
 
+L'onglet Fixe affiche une barre de répartition Entrées / Sorties avec les montants et le solde net mensuel.
+
+### Objectifs d'épargne
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/households/:id/goals` | Lister les objectifs + progression calculée |
+| POST | `/households/:id/goals` | Créer un objectif (name, targetAmount, deadline?) |
+| PATCH | `/households/:id/goals/:goalId` | Modifier ou marquer comme atteint |
+| DELETE | `/households/:id/goals/:goalId` | Supprimer un objectif |
+| POST | `/households/:id/goals/:goalId/contribute` | Ajouter une contribution manuelle |
+
+Chaque objectif retourne : `{ savedAmount, percent, monthlyRecommended }`.
+
 ---
 
 ## Pages frontend
@@ -160,10 +183,82 @@ Fréquences disponibles : `DAILY`, `WEEKDAYS`, `WEEKLY`, `MONTHLY`, `YEARLY`.
 | `/login` | Page de connexion — bouton Google OAuth |
 | `/auth/callback` | Réception des tokens après OAuth |
 | `/households` | Liste des foyers de l'utilisateur |
-| `/households/[id]` | Détail d'un foyer — onglets Mouvements / Fixe / Stats / Membres |
+| `/households/[id]` | Détail d'un foyer — onglets Mouvements / Fixe / Objectifs / Stats / Membres |
 | `/households/[id]/history` | Journal d'activité du foyer |
 | `/households/[id]/settings` | Paramètres : renommer, catégories, membres, désactivation |
 | `/profile` | Profil utilisateur — modifier le nom et le thème |
+
+---
+
+## Roadmap
+
+### Budgets par catégorie ("enveloppes")
+
+Définir un plafond mensuel par catégorie et visualiser l'avancement en temps réel.
+
+**Objectif** : passer d'un outil de suivi passif à un outil de pilotage actif — savoir *avant* de dépasser, pas après.
+
+**Modèle de données**
+
+```prisma
+model CategoryBudget {
+  id          String    @id @default(cuid())
+  householdId String
+  categoryId  String
+  amount      Float     // plafond mensuel en €
+  month       Int?      // null = applicable tous les mois
+  year        Int?
+  household   Household @relation(...)
+  category    Category  @relation(...)
+  @@unique([householdId, categoryId, month, year])
+}
+```
+
+**API**
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| PUT | `/households/:id/categories/:catId/budget` | Définir / mettre à jour le budget mensuel |
+| DELETE | `/households/:id/categories/:catId/budget` | Supprimer le budget |
+
+Le endpoint `/transactions/dashboard` sera enrichi avec `budget` et `spent` par catégorie.
+
+**UI**
+
+Barre de progression par catégorie dans le tableau de bord :
+
+```
+🛒 Courses    ████████░░  420 / 500 €   (84%)
+🍽️ Restos     ██████████  198 / 150 €   ⚠️ dépassé
+```
+
+### Import de relevé bancaire (CSV)
+
+Uploader le CSV exporté depuis sa banque pour éviter la saisie manuelle des transactions.
+
+**Flux**
+
+```
+1. Upload CSV (Boursorama, LCL, Revolut…)
+2. API parse + normalise (date, libellé, montant)
+3. Suggestion de catégorie par matching sur le libellé
+   (ex. "LIDL" → 🛒 Courses, "NETFLIX" → 📱 Abonnements)
+4. Aperçu côté UI — tableau modifiable avant import
+5. Confirmation → création en masse des transactions
+```
+
+**API**
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/households/:id/transactions/import/preview` | Parse le CSV, retourne les lignes + catégories suggérées |
+| POST | `/households/:id/transactions/import/confirm` | Insère les transactions validées (`createMany`) |
+
+Les doublons sont détectés par empreinte `(date + montant + libellé)` avant insertion.
+
+**UI**
+
+Bouton "Importer un relevé" dans `MovementsPanel` → modal avec tableau ligne par ligne permettant d'ajuster la catégorie avant validation.
 
 ---
 

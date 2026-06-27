@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
@@ -129,6 +129,8 @@ function CategoriesSection({ householdId, token, categories, setCategories }: {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editColor, setEditColor] = useState('');
+  const dragId = useRef<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -161,30 +163,65 @@ function CategoriesSection({ householdId, token, categories, setCategories }: {
     setCategories((prev) => prev.filter((c) => c.id !== catId));
   }
 
+  function handleDragStart(id: string) {
+    dragId.current = id;
+  }
+
+  function handleDragOver(e: React.DragEvent, id: string) {
+    e.preventDefault();
+    if (dragId.current !== id) setDragOverId(id);
+  }
+
+  function handleDrop(targetId: string) {
+    const fromId = dragId.current;
+    dragId.current = null;
+    setDragOverId(null);
+    if (!fromId || fromId === targetId) return;
+
+    setCategories((prev) => {
+      const next = [...prev];
+      const fromIdx = next.findIndex((c) => c.id === fromId);
+      const toIdx = next.findIndex((c) => c.id === targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      const items = next.map((c, i) => ({ id: c.id, order: i }));
+      void api.reorderCategories(token, householdId, items);
+      return next;
+    });
+  }
+
+  function handleDragEnd() {
+    dragId.current = null;
+    setDragOverId(null);
+  }
+
   return (
     <section className="bg-theme-surface border border-theme-border rounded-xl p-6 space-y-4">
       <h2 className="font-semibold text-theme-text">Catégories</h2>
 
       {/* Create form */}
-      <form onSubmit={handleCreate} className="flex gap-2 items-center">
-        <input
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className="w-9 h-9 rounded-lg border border-theme-border cursor-pointer p-0.5 bg-theme-surface"
-          title="Couleur"
-        />
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Nom de la catégorie"
-          className="flex-1 border border-theme-border bg-theme-surface text-theme-text rounded-lg px-3 py-2 text-sm placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-brand-500"
-          required
-        />
+      <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-2">
+        <div className="flex gap-2 items-center">
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="w-9 h-9 flex-shrink-0 rounded-lg border border-theme-border cursor-pointer p-0.5 bg-theme-surface"
+            title="Couleur"
+          />
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Nom de la catégorie"
+            className="flex-1 border border-theme-border bg-theme-surface text-theme-text rounded-lg px-3 py-2 text-sm placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-brand-500"
+            required
+          />
+        </div>
         <button
           type="submit"
           disabled={creating || !label.trim()}
-          className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+          className="sm:flex-shrink-0 bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
         >
           {creating ? '…' : 'Ajouter'}
         </button>
@@ -196,7 +233,15 @@ function CategoriesSection({ householdId, token, categories, setCategories }: {
       ) : (
         <div className="divide-y divide-theme-border">
           {categories.map((cat) => (
-            <div key={cat.id} className="flex items-center gap-3 py-2.5">
+            <div
+              key={cat.id}
+              draggable={editingId !== cat.id}
+              onDragStart={() => handleDragStart(cat.id)}
+              onDragOver={(e) => handleDragOver(e, cat.id)}
+              onDrop={() => handleDrop(cat.id)}
+              onDragEnd={handleDragEnd}
+              className={`flex items-center gap-3 py-2.5 transition-colors ${dragOverId === cat.id ? 'bg-theme-bg rounded-lg' : ''}`}
+            >
               {editingId === cat.id ? (
                 <>
                   <input
@@ -215,6 +260,7 @@ function CategoriesSection({ householdId, token, categories, setCategories }: {
                 </>
               ) : (
                 <>
+                  <span className="text-theme-muted cursor-grab active:cursor-grabbing select-none" title="Réordonner">⠿</span>
                   <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                   <span className="flex-1 text-sm text-theme-text">{cat.label}</span>
                   <button onClick={() => startEdit(cat)} className="text-xs text-theme-muted hover:text-brand-600 transition-colors">✏️</button>
@@ -330,7 +376,7 @@ function MembersSection({ householdId, token, currentUserId, members, setMembers
 
               {isSelf && isSoleMember ? (
                 /* Seul membre : impossible de quitter, doit désactiver */
-                <span className="text-xs text-theme-muted opacity-60 italic">Désactivez le foyer</span>
+                <span className="text-xs text-theme-muted opacity-60 italic">Désactivez le foyer ⇊</span>
               ) : isSelf ? (
                 /* Soi-même mais pas seul : on ne peut pas non plus se retirer */
                 <span className="w-5" />

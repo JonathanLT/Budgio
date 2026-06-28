@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, MONTHS_FR } from '@/lib/utils';
 import { AddTransactionModal } from './AddTransactionModal';
+import { AnnualView } from './AnnualView';
 import type { Category, Transaction, Dashboard } from '@budgio/types';
 
 interface Props {
@@ -12,6 +13,16 @@ interface Props {
 }
 
 type Direction = 'all' | 'in' | 'out';
+type ViewMode = 'monthly' | 'annual' | 'search';
+
+interface AnnualData {
+  year: number;
+  openingBalance: number;
+  months: { year: number; month: number; totalIn: number; totalOut: number; closingBalance: number }[];
+  totalIn: number;
+  totalOut: number;
+  closingBalance: number;
+}
 
 export function MovementsPanel({ householdId, token }: Props) {
   const now = new Date();
@@ -29,6 +40,15 @@ export function MovementsPanel({ householdId, token }: Props) {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(now.getFullYear());
+
+  // View mode: monthly | annual | search
+  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [annualData, setAnnualData] = useState<AnnualData | null>(null);
+  const [annualLoading, setAnnualLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Transaction[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +67,7 @@ export function MovementsPanel({ householdId, token }: Props) {
   }, [token, householdId]);
 
   useEffect(() => {
+    if (viewMode !== 'monthly') return;
     setLoading(true);
     Promise.all([
       api.getTransactions(token, householdId, year, month),
@@ -57,7 +78,30 @@ export function MovementsPanel({ householdId, token }: Props) {
         setDashboard(dash as Dashboard);
       })
       .finally(() => setLoading(false));
-  }, [token, householdId, year, month]);
+  }, [token, householdId, year, month, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'annual') return;
+    setAnnualLoading(true);
+    api.getAnnualView(token, householdId, year)
+      .then((data) => setAnnualData(data as AnnualData))
+      .finally(() => setAnnualLoading(false));
+  }, [token, householdId, year, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'search') return;
+    const q = searchQuery.trim();
+    if (!q) { setSearchResults([]); return; }
+
+    const timer = setTimeout(() => {
+      setSearchLoading(true);
+      api.searchTransactions(token, householdId, q)
+        .then((res) => setSearchResults(res as Transaction[]))
+        .finally(() => setSearchLoading(false));
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [token, householdId, searchQuery, viewMode]);
 
   function prevMonth() {
     if (month === 1) { setYear((y) => y - 1); setMonth(12); }
@@ -67,6 +111,27 @@ export function MovementsPanel({ householdId, token }: Props) {
   function nextMonth() {
     if (month === 12) { setYear((y) => y + 1); setMonth(1); }
     else setMonth((m) => m + 1);
+  }
+
+  function enterSearch() {
+    setViewMode('search');
+    setSearchQuery('');
+    setSearchResults([]);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }
+
+  function exitSearch() {
+    setViewMode('monthly');
+    setSearchQuery('');
+    setSearchResults([]);
+  }
+
+  function toggleAnnual() {
+    if (viewMode === 'annual') {
+      setViewMode('monthly');
+    } else {
+      setViewMode('annual');
+    }
   }
 
   async function deleteTransaction(id: string) {
@@ -92,12 +157,11 @@ export function MovementsPanel({ householdId, token }: Props) {
   function clickTous() {
     setDirection('all');
     if (filterFixes) setFilterTous((v) => !v);
-    // else: Tous is the only active type — just reset direction
   }
 
   function clickFixes() {
     const next = !filterFixes;
-    if (!next && !filterTous) return; // keep at least one active
+    if (!next && !filterTous) return;
     setFilterFixes(next);
   }
 
@@ -109,300 +173,435 @@ export function MovementsPanel({ householdId, token }: Props) {
     <div className="space-y-6">
       {/* Month selector */}
       <div className="flex items-center justify-between">
-        <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-theme-bg transition-colors text-xl text-theme-muted">‹</button>
-
-        <div className="relative" ref={pickerRef}>
-          <button
-            onClick={() => { setPickerYear(year); setShowPicker((v) => !v); }}
-            className="text-lg font-semibold text-theme-text hover:text-brand-600 transition-colors px-2 py-1 rounded-lg hover:bg-theme-bg"
-          >
-            {MONTHS_FR[month - 1]} {year}
-          </button>
-
-          {showPicker && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-20 bg-theme-surface border border-theme-border rounded-xl shadow-lg p-4 w-64">
-              {/* Year nav */}
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  onClick={() => setPickerYear((y) => y - 1)}
-                  className="p-1 rounded hover:bg-theme-bg text-theme-muted"
-                >
-                  ‹
-                </button>
-                <span className="font-semibold text-theme-text">{pickerYear}</span>
-                <button
-                  onClick={() => setPickerYear((y) => y + 1)}
-                  className="p-1 rounded hover:bg-theme-bg text-theme-muted"
-                >
-                  ›
-                </button>
-              </div>
-
-              {/* Month grid */}
-              <div className="grid grid-cols-3 gap-1">
-                {MONTHS_FR.map((m, i) => {
-                  const isSelected = pickerYear === year && i + 1 === month;
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => {
-                        setYear(pickerYear);
-                        setMonth(i + 1);
-                        setShowPicker(false);
-                      }}
-                      className={`py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        isSelected
-                          ? 'bg-brand-600 text-white'
-                          : 'text-theme-text hover:bg-theme-bg'
-                      }`}
-                    >
-                      {m.slice(0, 3)}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-theme-bg transition-colors text-xl text-theme-muted">›</button>
-      </div>
-
-      {/* KPI cards */}
-      {dashboard && (
-        <div className="space-y-3">
-          <div className="bg-theme-bg border border-theme-border rounded-xl px-5 py-3 flex items-center justify-between">
-            <span className="text-sm text-theme-muted">Solde début de mois</span>
-            <span className={`font-semibold ${dashboard.openingBalance >= 0 ? 'text-theme-text' : 'text-red-500'}`}>
-              {dashboard.openingBalance >= 0 ? '+' : ''}{formatCurrency(dashboard.openingBalance)}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-theme-surface rounded-xl border border-theme-border p-4 space-y-1">
-              <p className="text-xs text-theme-muted uppercase tracking-wide">Entrées</p>
-              <p className="text-xl font-bold text-green-600">+{formatCurrency(dashboard.totalIn)}</p>
-            </div>
-            <div className="bg-theme-surface rounded-xl border border-theme-border p-4 space-y-1">
-              <p className="text-xs text-theme-muted uppercase tracking-wide">Sorties</p>
-              <p className="text-xl font-bold text-red-500">{formatCurrency(dashboard.totalOut)}</p>
-            </div>
-          </div>
-
-          <div className={`rounded-xl border px-5 py-3 flex items-center justify-between ${
-            dashboard.closingBalance >= 0
-              ? 'bg-brand-50 dark:bg-brand-600/10 border-brand-200 dark:border-brand-700'
-              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-          }`}>
-            <span className="text-sm font-medium text-theme-muted">Solde fin de mois</span>
-            <span className={`text-lg font-bold ${dashboard.closingBalance >= 0 ? 'text-brand-700 dark:text-brand-400' : 'text-red-600'}`}>
-              {dashboard.closingBalance >= 0 ? '+' : ''}{formatCurrency(dashboard.closingBalance)}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Filter + add button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 bg-theme-bg rounded-lg p-1">
-          {([
-            { label: 'Tous',    active: filterTous,           onClick: clickTous },
-            { label: 'Fixes',   active: filterFixes,          onClick: clickFixes },
-          ] as { label: string; active: boolean; onClick: () => void }[]).map((f) => (
-            <button
-              key={f.label}
-              onClick={f.onClick}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                f.active
-                  ? 'bg-theme-surface text-theme-text shadow-sm'
-                  : 'text-theme-muted hover:text-theme-text'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-          <div className="w-px h-4 bg-theme-border mx-0.5" />
-          {([
-            { label: 'Entrées', active: direction === 'in',  onClick: () => clickDirection('in') },
-            { label: 'Sorties', active: direction === 'out', onClick: () => clickDirection('out') },
-          ] as { label: string; active: boolean; onClick: () => void }[]).map((f) => (
-            <button
-              key={f.label}
-              onClick={f.onClick}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                f.active
-                  ? 'bg-theme-surface text-theme-text shadow-sm'
-                  : 'text-theme-muted hover:text-theme-text'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
         <button
-          onClick={() => setShowAdd(true)}
-          className="text-sm px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium"
+          onClick={viewMode === 'search' ? exitSearch : prevMonth}
+          className="p-2 rounded-lg hover:bg-theme-bg transition-colors text-xl text-theme-muted"
         >
-          <span className="sm:hidden text-lg leading-none">+</span>
-          <span className="hidden sm:inline">+ Transaction</span>
+          {viewMode === 'search' ? '←' : '‹'}
         </button>
+
+        {viewMode === 'search' ? (
+          <div className="flex-1 mx-2">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher une transaction…"
+              className="w-full px-4 py-2 text-sm border border-brand-500 rounded-xl bg-theme-bg text-theme-text placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+        ) : (
+          <div className="relative flex items-center gap-2" ref={pickerRef}>
+            <button
+              onClick={() => { setPickerYear(year); setShowPicker((v) => !v); }}
+              className="text-lg font-semibold text-theme-text hover:text-brand-600 transition-colors px-2 py-1 rounded-lg hover:bg-theme-bg"
+            >
+              {viewMode === 'annual' ? String(year) : `${MONTHS_FR[month - 1]} ${year}`}
+            </button>
+
+            {showPicker && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-20 bg-theme-surface border border-theme-border rounded-xl shadow-lg p-4 w-64">
+                <div className="flex items-center justify-between mb-3">
+                  <button
+                    onClick={() => setPickerYear((y) => y - 1)}
+                    className="p-1 rounded hover:bg-theme-bg text-theme-muted"
+                  >
+                    ‹
+                  </button>
+                  <span className="font-semibold text-theme-text">{pickerYear}</span>
+                  <button
+                    onClick={() => setPickerYear((y) => y + 1)}
+                    className="p-1 rounded hover:bg-theme-bg text-theme-muted"
+                  >
+                    ›
+                  </button>
+                </div>
+
+                {viewMode !== 'annual' && (
+                  <div className="grid grid-cols-3 gap-1">
+                    {MONTHS_FR.map((m, i) => {
+                      const isSelected = pickerYear === year && i + 1 === month;
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => {
+                            setYear(pickerYear);
+                            setMonth(i + 1);
+                            setShowPicker(false);
+                          }}
+                          className={`py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-brand-600 text-white'
+                              : 'text-theme-text hover:bg-theme-bg'
+                          }`}
+                        >
+                          {m.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {viewMode === 'annual' && (
+                  <button
+                    onClick={() => {
+                      setYear(pickerYear);
+                      setShowPicker(false);
+                    }}
+                    className="w-full py-2 rounded-lg bg-brand-600 text-white text-sm font-medium"
+                  >
+                    Voir {pickerYear}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Annual toggle */}
+            <button
+              onClick={toggleAnnual}
+              title={viewMode === 'annual' ? 'Vue mensuelle' : 'Vue annuelle'}
+              className={`p-1.5 rounded-lg text-base transition-colors ${
+                viewMode === 'annual'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-theme-muted hover:text-brand-600 hover:bg-theme-bg'
+              }`}
+            >
+              📅
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center gap-1">
+          {viewMode !== 'search' && (
+            <button
+              onClick={enterSearch}
+              className="p-2 rounded-lg hover:bg-theme-bg transition-colors text-theme-muted hover:text-brand-600"
+              title="Rechercher"
+            >
+              🔍
+            </button>
+          )}
+          {viewMode !== 'search' && viewMode !== 'annual' && (
+            <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-theme-bg transition-colors text-xl text-theme-muted">›</button>
+          )}
+        </div>
       </div>
 
-      {/* Transactions list */}
-      {loading ? (
-        <div className="text-center py-10 text-theme-muted">Chargement…</div>
-      ) : (
-        <div className="bg-theme-surface rounded-xl border border-theme-border divide-y divide-theme-border">
-          {visible.map((tx) => {
-            const isIn = tx.amount > 0;
-            return (
-              <div key={tx.id} className="flex items-center justify-between px-5 py-4 group">
-                <div className="flex items-center gap-4">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg ${isIn ? 'bg-green-50 dark:bg-green-900/30 text-green-500' : 'bg-red-50 dark:bg-red-900/30 text-red-400'}`}>
-                    {isIn ? '↑' : '↓'}
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm text-theme-text">{tx.label}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {tx.category && (
-                        <span
-                          className="text-xs px-1.5 py-0.5 rounded-full font-medium"
-                          style={{ backgroundColor: tx.category.color + '33', color: tx.category.color }}
-                        >
-                          {tx.category.label}
-                        </span>
-                      )}
-                      <span className="text-xs text-theme-muted opacity-70">{formatDate(tx.date)}</span>
-                      <span className="text-xs text-theme-muted opacity-70">{tx.createdBy.name}</span>
-                      {tx.isRecurring && <span className="text-xs text-blue-400">↺</span>}
-                      {tx.goalId && <span className="text-xs text-brand-500" title="Lié à un objectif d'épargne">🎯</span>}
-                      {tx.attachmentUrl && (
-                        <a href={tx.attachmentUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline">
-                          📎
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`font-semibold ${isIn ? 'text-green-600' : 'text-red-500'}`}>
-                    {isIn ? '+' : ''}{formatCurrency(tx.amount)}
-                  </span>
-                  <button
-                    onClick={() => setEditingTx(tx)}
-                    className="sm:opacity-0 sm:group-hover:opacity-100 text-theme-muted hover:text-brand-600 transition-all"
-                    title="Modifier"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => deleteTransaction(tx.id)}
-                    className="sm:opacity-0 sm:group-hover:opacity-100 text-theme-muted hover:text-red-500 transition-all"
-                    title="Supprimer"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+      {/* Annual view */}
+      {viewMode === 'annual' && (
+        annualLoading
+          ? <div className="text-center py-10 text-theme-muted">Chargement…</div>
+          : annualData
+            ? <AnnualView
+                data={annualData}
+                onSelectMonth={(y, m) => {
+                  setYear(y);
+                  setMonth(m);
+                  setViewMode('monthly');
+                }}
+              />
+            : null
+      )}
 
-          {visible.length === 0 && (
+      {/* Search results */}
+      {viewMode === 'search' && (
+        <div className="space-y-2">
+          {searchLoading && (
+            <div className="text-center py-10 text-theme-muted">Recherche…</div>
+          )}
+          {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
             <div className="text-center py-12 text-theme-muted">
-              <p className="text-3xl mb-3">📭</p>
-              <p>Aucune transaction pour ce mois.</p>
+              <p className="text-3xl mb-3">🔍</p>
+              <p>Aucune transaction trouvée pour « {searchQuery} »</p>
+            </div>
+          )}
+          {!searchLoading && searchResults.length > 0 && (
+            <>
+              <p className="text-xs text-theme-muted px-1">
+                {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''} pour « {searchQuery} »
+              </p>
+              <div className="bg-theme-surface rounded-xl border border-theme-border divide-y divide-theme-border">
+                {searchResults.map((tx) => {
+                  const isIn = tx.amount > 0;
+                  return (
+                    <div key={tx.id} className="flex items-center justify-between px-5 py-4 group">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg ${isIn ? 'bg-green-50 dark:bg-green-900/30 text-green-500' : 'bg-red-50 dark:bg-red-900/30 text-red-400'}`}>
+                          {isIn ? '↑' : '↓'}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm text-theme-text">{tx.label}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {tx.category && (
+                              <span
+                                className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                                style={{ backgroundColor: tx.category.color + '33', color: tx.category.color }}
+                              >
+                                {tx.category.label}
+                              </span>
+                            )}
+                            <span className="text-xs text-theme-muted opacity-70">{formatDate(tx.date)}</span>
+                            {tx.isRecurring && <span className="text-xs text-blue-400">↺</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`font-semibold ${isIn ? 'text-green-600' : 'text-red-500'}`}>
+                        {isIn ? '+' : ''}{formatCurrency(tx.amount)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {!searchLoading && !searchQuery.trim() && (
+            <div className="text-center py-16 text-theme-muted">
+              <p className="text-3xl mb-3">🔍</p>
+              <p className="text-sm">Tapez pour rechercher dans toutes vos transactions</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Category breakdown */}
-      {dashboard && dashboard.byCategory.length > 0 && (
-        <div className="bg-theme-surface rounded-xl border border-theme-border p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-theme-text">Mouvements par catégorie</h3>
-            <div className="flex rounded-lg overflow-hidden border border-theme-border text-xs">
-              <button
-                onClick={() => setCategoryDisplay('amount')}
-                className={`px-2.5 py-1 font-medium transition-colors ${
-                  categoryDisplay === 'amount'
-                    ? 'bg-theme-text text-theme-bg'
-                    : 'bg-theme-surface text-theme-muted hover:bg-theme-bg'
-                }`}
-              >
-                €
-              </button>
-              <button
-                onClick={() => setCategoryDisplay('percent')}
-                className={`px-2.5 py-1 font-medium transition-colors ${
-                  categoryDisplay === 'percent'
-                    ? 'bg-theme-text text-theme-bg'
-                    : 'bg-theme-surface text-theme-muted hover:bg-theme-bg'
-                }`}
-              >
-                %
-              </button>
+      {/* Monthly view */}
+      {viewMode === 'monthly' && (
+        <>
+          {/* KPI cards */}
+          {dashboard && (
+            <div className="space-y-3">
+              <div className="bg-theme-bg border border-theme-border rounded-xl px-5 py-3 flex items-center justify-between">
+                <span className="text-sm text-theme-muted">Solde début de mois</span>
+                <span className={`font-semibold ${dashboard.openingBalance >= 0 ? 'text-theme-text' : 'text-red-500'}`}>
+                  {dashboard.openingBalance >= 0 ? '+' : ''}{formatCurrency(dashboard.openingBalance)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-theme-surface rounded-xl border border-theme-border p-4 space-y-1">
+                  <p className="text-xs text-theme-muted uppercase tracking-wide">Entrées</p>
+                  <p className="text-xl font-bold text-green-600">+{formatCurrency(dashboard.totalIn)}</p>
+                </div>
+                <div className="bg-theme-surface rounded-xl border border-theme-border p-4 space-y-1">
+                  <p className="text-xs text-theme-muted uppercase tracking-wide">Sorties</p>
+                  <p className="text-xl font-bold text-red-500">{formatCurrency(dashboard.totalOut)}</p>
+                </div>
+              </div>
+
+              <div className={`rounded-xl border px-5 py-3 flex items-center justify-between ${
+                dashboard.closingBalance >= 0
+                  ? 'bg-brand-50 dark:bg-brand-600/10 border-brand-200 dark:border-brand-700'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              }`}>
+                <span className="text-sm font-medium text-theme-muted">Solde fin de mois</span>
+                <span className={`text-lg font-bold ${dashboard.closingBalance >= 0 ? 'text-brand-700 dark:text-brand-400' : 'text-red-600'}`}>
+                  {dashboard.closingBalance >= 0 ? '+' : ''}{formatCurrency(dashboard.closingBalance)}
+                </span>
+              </div>
             </div>
+          )}
+
+          {/* Filter + add button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 bg-theme-bg rounded-lg p-1">
+              {([
+                { label: 'Tous',    active: filterTous,           onClick: clickTous },
+                { label: 'Fixes',   active: filterFixes,          onClick: clickFixes },
+              ] as { label: string; active: boolean; onClick: () => void }[]).map((f) => (
+                <button
+                  key={f.label}
+                  onClick={f.onClick}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    f.active
+                      ? 'bg-theme-surface text-theme-text shadow-sm'
+                      : 'text-theme-muted hover:text-theme-text'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+              <div className="w-px h-4 bg-theme-border mx-0.5" />
+              {([
+                { label: 'Entrées', active: direction === 'in',  onClick: () => clickDirection('in') },
+                { label: 'Sorties', active: direction === 'out', onClick: () => clickDirection('out') },
+              ] as { label: string; active: boolean; onClick: () => void }[]).map((f) => (
+                <button
+                  key={f.label}
+                  onClick={f.onClick}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    f.active
+                      ? 'bg-theme-surface text-theme-text shadow-sm'
+                      : 'text-theme-muted hover:text-theme-text'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="text-sm px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium"
+            >
+              <span className="sm:hidden text-lg leading-none">+</span>
+              <span className="hidden sm:inline">+ Transaction</span>
+            </button>
           </div>
 
-          {/* Sorties */}
-          {dashboard.byCategory.filter((c) => c.total < 0).length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-theme-muted uppercase tracking-wide">Sorties</p>
-              {dashboard.byCategory
-                .filter((c) => c.total < 0)
-                .sort((a, b) => a.total - b.total)
-                .map(({ id, label, color, total }) => {
-                  const pct = Math.round((Math.abs(total) / Math.abs(dashboard.totalOut || 1)) * 100);
-                  return (
-                    <div key={id} className="flex items-center gap-3">
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full font-medium w-28 text-center truncate"
-                        style={{ backgroundColor: color + '33', color }}
-                      >
-                        {label}
-                      </span>
-                      <div className="flex-1 bg-theme-bg rounded-full h-2">
-                        <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+          {/* Transactions list */}
+          {loading ? (
+            <div className="text-center py-10 text-theme-muted">Chargement…</div>
+          ) : (
+            <div className="bg-theme-surface rounded-xl border border-theme-border divide-y divide-theme-border">
+              {visible.map((tx) => {
+                const isIn = tx.amount > 0;
+                return (
+                  <div key={tx.id} className="flex items-center justify-between px-5 py-4 group">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg ${isIn ? 'bg-green-50 dark:bg-green-900/30 text-green-500' : 'bg-red-50 dark:bg-red-900/30 text-red-400'}`}>
+                        {isIn ? '↑' : '↓'}
                       </div>
-                      <span className="text-sm font-medium text-red-500 w-20 text-right tabular-nums">
-                        {categoryDisplay === 'percent' ? `${pct} %` : formatCurrency(total)}
-                      </span>
+                      <div>
+                        <p className="font-medium text-sm text-theme-text">{tx.label}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {tx.category && (
+                            <span
+                              className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                              style={{ backgroundColor: tx.category.color + '33', color: tx.category.color }}
+                            >
+                              {tx.category.label}
+                            </span>
+                          )}
+                          <span className="text-xs text-theme-muted opacity-70">{formatDate(tx.date)}</span>
+                          <span className="text-xs text-theme-muted opacity-70">{tx.createdBy.name}</span>
+                          {tx.isRecurring && <span className="text-xs text-blue-400">↺</span>}
+                          {tx.goalId && <span className="text-xs text-brand-500" title="Lié à un objectif d'épargne">🎯</span>}
+                          {tx.attachmentUrl && (
+                            <a href={tx.attachmentUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline">
+                              📎
+                            </a>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  );
-                })}
+                    <div className="flex items-center gap-3">
+                      <span className={`font-semibold ${isIn ? 'text-green-600' : 'text-red-500'}`}>
+                        {isIn ? '+' : ''}{formatCurrency(tx.amount)}
+                      </span>
+                      <button
+                        onClick={() => setEditingTx(tx)}
+                        className="sm:opacity-0 sm:group-hover:opacity-100 text-theme-muted hover:text-brand-600 transition-all"
+                        title="Modifier"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => deleteTransaction(tx.id)}
+                        className="sm:opacity-0 sm:group-hover:opacity-100 text-theme-muted hover:text-red-500 transition-all"
+                        title="Supprimer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {visible.length === 0 && (
+                <div className="text-center py-12 text-theme-muted">
+                  <p className="text-3xl mb-3">📭</p>
+                  <p>Aucune transaction pour ce mois.</p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Entrées */}
-          {dashboard.byCategory.filter((c) => c.total > 0).length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-theme-muted uppercase tracking-wide">Entrées</p>
-              {dashboard.byCategory
-                .filter((c) => c.total > 0)
-                .sort((a, b) => b.total - a.total)
-                .map(({ id, label, color, total }) => {
-                  const pct = Math.round((total / (dashboard.totalIn || 1)) * 100);
-                  return (
-                    <div key={id} className="flex items-center gap-3">
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full font-medium w-28 text-center truncate"
-                        style={{ backgroundColor: color + '33', color }}
-                      >
-                        {label}
-                      </span>
-                      <div className="flex-1 bg-theme-bg rounded-full h-2">
-                        <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-                      </div>
-                      <span className="text-sm font-medium text-green-600 w-20 text-right tabular-nums">
-                        {categoryDisplay === 'percent' ? `${pct} %` : `+${formatCurrency(total)}`}
-                      </span>
-                    </div>
-                  );
-                })}
+          {/* Category breakdown */}
+          {dashboard && dashboard.byCategory.length > 0 && (
+            <div className="bg-theme-surface rounded-xl border border-theme-border p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-theme-text">Mouvements par catégorie</h3>
+                <div className="flex rounded-lg overflow-hidden border border-theme-border text-xs">
+                  <button
+                    onClick={() => setCategoryDisplay('amount')}
+                    className={`px-2.5 py-1 font-medium transition-colors ${
+                      categoryDisplay === 'amount'
+                        ? 'bg-theme-text text-theme-bg'
+                        : 'bg-theme-surface text-theme-muted hover:bg-theme-bg'
+                    }`}
+                  >
+                    €
+                  </button>
+                  <button
+                    onClick={() => setCategoryDisplay('percent')}
+                    className={`px-2.5 py-1 font-medium transition-colors ${
+                      categoryDisplay === 'percent'
+                        ? 'bg-theme-text text-theme-bg'
+                        : 'bg-theme-surface text-theme-muted hover:bg-theme-bg'
+                    }`}
+                  >
+                    %
+                  </button>
+                </div>
+              </div>
+
+              {dashboard.byCategory.filter((c) => c.total < 0).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-theme-muted uppercase tracking-wide">Sorties</p>
+                  {dashboard.byCategory
+                    .filter((c) => c.total < 0)
+                    .sort((a, b) => a.total - b.total)
+                    .map(({ id, label, color, total }) => {
+                      const pct = Math.round((Math.abs(total) / Math.abs(dashboard.totalOut || 1)) * 100);
+                      return (
+                        <div key={id} className="flex items-center gap-3">
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium w-28 text-center truncate"
+                            style={{ backgroundColor: color + '33', color }}
+                          >
+                            {label}
+                          </span>
+                          <div className="flex-1 bg-theme-bg rounded-full h-2">
+                            <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                          </div>
+                          <span className="text-sm font-medium text-red-500 w-20 text-right tabular-nums">
+                            {categoryDisplay === 'percent' ? `${pct} %` : formatCurrency(total)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {dashboard.byCategory.filter((c) => c.total > 0).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-theme-muted uppercase tracking-wide">Entrées</p>
+                  {dashboard.byCategory
+                    .filter((c) => c.total > 0)
+                    .sort((a, b) => b.total - a.total)
+                    .map(({ id, label, color, total }) => {
+                      const pct = Math.round((total / (dashboard.totalIn || 1)) * 100);
+                      return (
+                        <div key={id} className="flex items-center gap-3">
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium w-28 text-center truncate"
+                            style={{ backgroundColor: color + '33', color }}
+                          >
+                            {label}
+                          </span>
+                          <div className="flex-1 bg-theme-bg rounded-full h-2">
+                            <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                          </div>
+                          <span className="text-sm font-medium text-green-600 w-20 text-right tabular-nums">
+                            {categoryDisplay === 'percent' ? `${pct} %` : `+${formatCurrency(total)}`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {showAdd && (

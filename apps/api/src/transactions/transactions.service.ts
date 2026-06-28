@@ -18,7 +18,7 @@ export class TransactionsService {
     private log: LogService,
   ) {}
 
-  async findAll(householdId: string, userId: string, year?: number, month?: number) {
+  async findAll(householdId: string, userId: string, year?: number, month?: number, q?: string) {
     await this.households.assertMember(householdId, userId);
 
     const where: Record<string, unknown> = { householdId };
@@ -28,12 +28,57 @@ export class TransactionsService {
         lte: new Date(year, month, 0, 23, 59, 59),
       };
     }
+    if (q?.trim()) {
+      where['label'] = { contains: q.trim(), mode: 'insensitive' };
+    }
 
     return this.prisma.transaction.findMany({
       where,
       include: INCLUDE,
       orderBy: { date: 'desc' },
+      ...(q ? { take: 100 } : {}),
     });
+  }
+
+  async annual(householdId: string, userId: string, year: number) {
+    await this.households.assertMember(householdId, userId);
+
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+
+    const [openingAgg, txs] = await Promise.all([
+      this.prisma.transaction.aggregate({
+        where: { householdId, date: { lt: yearStart } },
+        _sum: { amount: true },
+      }),
+      this.prisma.transaction.findMany({
+        where: { householdId, date: { gte: yearStart, lte: yearEnd } },
+        select: { amount: true, date: true },
+        orderBy: { date: 'asc' },
+      }),
+    ]);
+
+    let runningBalance = openingAgg._sum.amount ?? 0;
+    const months = [];
+
+    for (let m = 1; m <= 12; m++) {
+      const mStart = new Date(year, m - 1, 1);
+      const mEnd = new Date(year, m, 0, 23, 59, 59, 999);
+      const monthTxs = txs.filter((t) => t.date >= mStart && t.date <= mEnd);
+      const totalIn = monthTxs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+      const totalOut = monthTxs.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+      runningBalance += totalIn + totalOut;
+      months.push({ year, month: m, totalIn, totalOut, closingBalance: runningBalance });
+    }
+
+    return {
+      year,
+      openingBalance: openingAgg._sum.amount ?? 0,
+      months,
+      totalIn: months.reduce((s, m) => s + m.totalIn, 0),
+      totalOut: months.reduce((s, m) => s + m.totalOut, 0),
+      closingBalance: months[11]?.closingBalance ?? 0,
+    };
   }
 
   async dashboard(householdId: string, userId: string, year: number, month: number) {

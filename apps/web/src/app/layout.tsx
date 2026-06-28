@@ -1,15 +1,23 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { SwRegister } from '@/components/SwRegister';
 
 export const metadata: Metadata = {
   title: 'Budgio — Budget familial',
   description: 'Gestion budgétaire familiale collaborative',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Budgio',
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: '#2563eb',
 };
 
 // Appliqué avant le premier rendu pour éviter le flash de thème
@@ -34,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>{children}</ThemeProvider>
+        <SwRegister />
       </body>
     </html>
   );

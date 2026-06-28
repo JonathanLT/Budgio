@@ -31,18 +31,32 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Lister les transactions (entrées et sorties)' })
   @ApiQuery({ name: 'year', required: false, type: Number })
   @ApiQuery({ name: 'month', required: false, type: Number })
+  @ApiQuery({ name: 'q', required: false, type: String })
   findAll(
     @Req() req: Request,
     @Param('householdId') householdId: string,
     @Query('year') year?: string,
     @Query('month') month?: string,
+    @Query('q') q?: string,
   ) {
     return this.txService.findAll(
       householdId,
       (req.user as User).id,
       year ? +year : undefined,
       month ? +month : undefined,
+      q,
     );
+  }
+
+  @Get('annual')
+  @ApiOperation({ summary: 'Résumé annuel — 12 mois de l\'année sélectionnée' })
+  @ApiQuery({ name: 'year', required: true, type: Number })
+  annual(
+    @Req() req: Request,
+    @Param('householdId') householdId: string,
+    @Query('year') year: string,
+  ) {
+    return this.txService.annual(householdId, (req.user as User).id, +year);
   }
 
   @Get('stats')

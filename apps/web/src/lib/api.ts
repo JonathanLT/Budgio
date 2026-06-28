@@ -126,6 +126,10 @@ export const api = {
     const params = year && month ? `?year=${year}&month=${month}` : '';
     return apiFetch(`/households/${householdId}/transactions${params}`, token);
   },
+  searchTransactions: (token: string, householdId: string, q: string) =>
+    apiFetch(`/households/${householdId}/transactions?q=${encodeURIComponent(q)}`, token),
+  getAnnualView: (token: string, householdId: string, year: number) =>
+    apiFetch(`/households/${householdId}/transactions/annual?year=${year}`, token),
   getDashboard: (token: string, householdId: string, year: number, month: number) =>
     apiFetch(`/households/${householdId}/transactions/dashboard?year=${year}&month=${month}`, token),
   createTransaction: (token: string, householdId: string, data: unknown) =>

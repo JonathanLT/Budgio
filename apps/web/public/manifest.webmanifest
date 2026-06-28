@@ -1,0 +1,33 @@
+{
+  "name": "Budgio — Budget familial",
+  "short_name": "Budgio",
+  "description": "Gestion budgétaire familiale collaborative",
+  "start_url": "/households",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "lang": "fr",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mes foyers",
+      "url": "/households",
+      "description": "Accéder à mes foyers"
+    }
+  ]
+}

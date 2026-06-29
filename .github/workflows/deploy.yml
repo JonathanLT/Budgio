@@ -32,6 +32,10 @@ jobs:
             sleep 2
           done
 
+      - name: Show API logs if not healthy
+        if: failure()
+        run: docker compose logs api --tail=50
+
       - name: Run migrations
         run: docker compose exec -T api npx prisma migrate deploy
 

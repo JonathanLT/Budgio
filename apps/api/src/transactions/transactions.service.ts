@@ -268,13 +268,13 @@ export class TransactionsService {
 
   async update(householdId: string, txId: string, userId: string, dto: UpdateTransactionDto) {
     await this.assertOwnerOrAdmin(householdId, txId, userId);
-    const { categoryId, ...rest } = dto;
+    const { categoryId, date, ...rest } = dto as Partial<CreateTransactionDto>;
     const tx = await this.prisma.transaction.update({
       where: { id: txId },
       data: {
         ...rest,
         ...(categoryId !== undefined ? { categoryId: categoryId ?? null } : {}),
-        date: dto.date ? new Date(dto.date) : undefined,
+        date: date ? new Date(date) : undefined,
       },
       include: INCLUDE,
     });

@@ -146,6 +146,14 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Version */}
+        <div className="border-t border-theme-border pt-4 space-y-1">
+          <p className="text-xs font-medium text-theme-muted uppercase tracking-wide">Version</p>
+          <p className="text-sm font-mono text-theme-muted">
+            {process.env.NEXT_PUBLIC_GIT_HASH ?? 'unknown'}
+          </p>
+        </div>
+
         <p className="text-xs text-theme-muted opacity-70 border-t border-theme-border pt-4">
           Le profil est géré via Google. Les modifications de nom ou d&apos;avatar se font depuis votre compte Google.
         </p>

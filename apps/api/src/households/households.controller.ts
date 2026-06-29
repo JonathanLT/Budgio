@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Req, UseGuards, HttpCode, HttpStatus,
+  Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -44,9 +45,16 @@ export class HouseholdsController {
   }
 
   @Get(':id/members/suggestions')
-  @ApiOperation({ summary: 'Utilisateurs Budgio non membres du foyer (ADMIN)' })
-  memberSuggestions(@Req() req: Request, @Param('id') id: string) {
-    return this.householdsService.memberSuggestions(id, (req.user as User).id);
+  @ApiOperation({ summary: 'Rechercher des utilisateurs Budgio non membres du foyer (ADMIN)' })
+  memberSuggestions(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Query('q') q: string,
+  ) {
+    if (!q || q.trim().length < 2) {
+      throw new BadRequestException('Le paramètre q doit contenir au moins 2 caractères');
+    }
+    return this.householdsService.memberSuggestions(id, (req.user as User).id, q.trim());
   }
 
   @Post(':id/members')

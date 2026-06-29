@@ -22,10 +22,17 @@ export function MembersPanel({ householdId, members, token, onMembersChange }: P
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.getMemberSuggestions(token, householdId)
-      .then((data) => setSuggestions(data as UserSuggestion[]))
-      .catch(() => {});
-  }, [token, householdId]);
+    if (query.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const id = setTimeout(() => {
+      api.getMemberSuggestions(token, householdId, query.trim())
+        .then((data) => setSuggestions(data as UserSuggestion[]))
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(id);
+  }, [token, householdId, query]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -37,11 +44,7 @@ export function MembersPanel({ householdId, members, token, onMembersChange }: P
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filtered = suggestions.filter(
-    (u) =>
-      u.name.toLowerCase().includes(query.toLowerCase()) ||
-      u.email.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = suggestions;
 
   function selectUser(u: UserSuggestion) {
     setSelectedUser(u);
@@ -90,7 +93,7 @@ export function MembersPanel({ householdId, members, token, onMembersChange }: P
       <div className="bg-theme-surface rounded-xl border border-theme-border p-6 space-y-4">
         <h2 className="font-semibold text-theme-text">Inviter un membre</h2>
 
-        {suggestions.length === 0 && !selectedUser ? (
+        {false ? (
           <p className="text-sm text-theme-muted">Tous les utilisateurs Budgio sont déjà membres de ce foyer.</p>
         ) : (
           <form onSubmit={handleInvite} className="flex gap-3">

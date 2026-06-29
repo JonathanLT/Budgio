@@ -13,9 +13,10 @@ RUN cd apps/api && npx prisma generate && npm run build
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-# Copier les deux node_modules : root (packages hoistés) + workspace api (packages non-hoistés)
+# Copier root node_modules (packages hoistés) puis fusionner les packages workspace
+# par-dessus — Docker merge les répertoires, les packages workspace écrasent les doublons
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/apps/api/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma

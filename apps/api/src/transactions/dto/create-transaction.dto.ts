@@ -1,5 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsNotEmpty, IsDateString, IsBoolean, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsNumber, IsNotEmpty, IsDateString, IsBoolean, IsOptional, IsUrl, Matches, Min, Max, MaxLength } from 'class-validator';
+
+// Standard 5-field cron expression (minute hour day month weekday)
+const CRON_REGEX = /^(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-6,\-\/]+)$/;
 
 export class CreateTransactionDto {
   @ApiProperty({ example: 'Salaire juin' })
@@ -9,6 +12,8 @@ export class CreateTransactionDto {
 
   @ApiProperty({ example: 1500, description: 'Montant signé : positif = entrée, négatif = sortie' })
   @IsNumber()
+  @Min(-1_000_000_000)
+  @Max(1_000_000_000)
   amount!: number;
 
   @ApiPropertyOptional({ description: 'ID de la catégorie du foyer' })
@@ -28,10 +33,12 @@ export class CreateTransactionDto {
   @ApiPropertyOptional({ example: '0 0 5 * *' })
   @IsString()
   @IsOptional()
+  @Matches(CRON_REGEX, { message: 'recurringCron doit être une expression cron valide (5 champs)' })
   recurringCron?: string;
 
   @ApiPropertyOptional()
-  @IsUrl()
+  @IsUrl({ require_protocol: true, protocols: ['https'] })
+  @MaxLength(2048)
   @IsOptional()
   attachmentUrl?: string;
 

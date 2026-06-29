@@ -1,24 +1,27 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 function CallbackContent() {
   const router = useRouter();
-  const params = useSearchParams();
 
   useEffect(() => {
-    const accessToken = params.get('accessToken');
-    const refreshToken = params.get('refreshToken');
+    // Access token arrives in the URL fragment (#access=...) — never sent to the server
+    // Refresh token is set as an HttpOnly cookie by the API redirect
+    const hash = window.location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access');
 
-    if (accessToken && refreshToken) {
+    if (accessToken) {
       localStorage.setItem('budgio_access', accessToken);
-      localStorage.setItem('budgio_refresh', refreshToken);
+      // Clear the fragment from history so the token doesn't linger in the URL bar
+      window.history.replaceState(null, '', window.location.pathname);
       router.replace('/households');
     } else {
       router.replace('/login?error=OAuthFailed');
     }
-  }, [params, router]);
+  }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-theme-bg">
@@ -31,13 +34,5 @@ function CallbackContent() {
 }
 
 export default function CallbackPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-theme-bg">
-        <p className="text-theme-muted">Chargement…</p>
-      </div>
-    }>
-      <CallbackContent />
-    </Suspense>
-  );
+  return <CallbackContent />;
 }

@@ -31,7 +31,12 @@ export function useAuth() {
 
   function logout() {
     localStorage.removeItem('budgio_access');
-    localStorage.removeItem('budgio_refresh');
+    // HttpOnly cookie cleared by the API — fire-and-forget
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+    }).catch(() => {});
     router.replace('/login');
   }
 

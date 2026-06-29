@@ -19,26 +19,21 @@ async function doRefresh(): Promise<string> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const refreshToken = localStorage.getItem('budgio_refresh');
-    if (!refreshToken) throw new Error('Non authentifié');
-
+    // Refresh token is sent automatically via HttpOnly cookie
     const res = await fetch(`${BASE}/api/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
     });
 
     if (!res.ok) {
       localStorage.removeItem('budgio_access');
-      localStorage.removeItem('budgio_refresh');
       window.location.replace('/login');
       throw new Error('Session expirée');
     }
 
-    const tokens = await res.json() as { accessToken: string; refreshToken: string };
-    localStorage.setItem('budgio_access', tokens.accessToken);
-    localStorage.setItem('budgio_refresh', tokens.refreshToken);
-    return tokens.accessToken;
+    const { accessToken } = await res.json() as { accessToken: string };
+    localStorage.setItem('budgio_access', accessToken);
+    return accessToken;
   })().finally(() => { refreshPromise = null; });
 
   return refreshPromise;
@@ -100,8 +95,8 @@ export const api = {
     apiFetch(`/households/${id}/deactivate`, token, { method: 'PATCH' }),
 
   // Members
-  getMemberSuggestions: (token: string, id: string) =>
-    apiFetch(`/households/${id}/members/suggestions`, token),
+  getMemberSuggestions: (token: string, id: string, q: string) =>
+    apiFetch(`/households/${id}/members/suggestions?q=${encodeURIComponent(q)}`, token),
   inviteMember: (token: string, id: string, email: string) =>
     apiFetch(`/households/${id}/members`, token, { method: 'POST', body: JSON.stringify({ email }) }),
   updateMemberRole: (token: string, id: string, memberId: string, role: string) =>

@@ -2,28 +2,35 @@ import {
   Controller,
   Get,
   Post,
-  Body,
   Req,
   Res,
   UseGuards,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RefreshDto } from './dto/refresh.dto';
+
+const REFRESH_COOKIE = 'budgio_refresh';
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: '/api/auth',
+};
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  // 20 tentatives / minute par IP
   @Get('google')
   @Throttle({ default: { ttl: 60_000, limit: 20 } })
   @UseGuards(GoogleAuthGuard)
@@ -36,20 +43,25 @@ export class AuthController {
   @ApiOperation({ summary: 'Callback OAuth Google' })
   async googleCallback(@Req() req: Request, @Res() res: Response) {
     const user = req.user as User;
-    const tokens = await this.authService.generateTokens(user);
+    const { accessToken, refreshToken } = await this.authService.generateTokens(user);
     const frontend = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
-    res.redirect(
-      `${frontend}/auth/callback?accessToken=${tokens.accessToken}&refreshToken=${tokens.refreshToken}`,
-    );
+
+    res.cookie(REFRESH_COOKIE, refreshToken, COOKIE_OPTS);
+    // Pass only the short-lived access token via URL fragment (never sent in Referer headers)
+    res.redirect(`${frontend}/auth/callback#access=${accessToken}`);
   }
 
-  // 10 tentatives / minute par IP — endpoint le plus sensible
   @Post('refresh')
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rafraîchir les tokens' })
-  refresh(@Body() dto: RefreshDto) {
-    return this.authService.refresh(dto.refreshToken);
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const rawToken: string | undefined = req.cookies?.[REFRESH_COOKIE];
+    if (!rawToken) throw new UnauthorizedException('Refresh token manquant');
+
+    const tokens = await this.authService.refresh(rawToken);
+    res.cookie(REFRESH_COOKIE, tokens.refreshToken, COOKIE_OPTS);
+    return { accessToken: tokens.accessToken };
   }
 
   @Post('logout')
@@ -57,9 +69,10 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Déconnexion (révocation des tokens)' })
-  async logout(@Req() req: Request) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const user = req.user as User;
     const token = req.headers.authorization?.replace('Bearer ', '') ?? '';
     await this.authService.logout(user.id, token);
+    res.clearCookie(REFRESH_COOKIE, { ...COOKIE_OPTS, maxAge: undefined });
   }
 }

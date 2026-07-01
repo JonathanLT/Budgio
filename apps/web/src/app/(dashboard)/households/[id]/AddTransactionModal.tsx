@@ -144,7 +144,7 @@ export function AddTransactionModal({ token, householdId, year, month, categorie
 
           <div>
             <label className="block text-sm font-medium text-theme-text mb-1">
-              Catégorie <span className="text-theme-muted font-normal">(optionnel)</span>
+              Catégorie <span className="text-theme-muted font-normal">(optionnelle)</span>
             </label>
             <select
               value={categoryId}

@@ -16,7 +16,7 @@ jobs:
         run: cp ~/budgio/.env .env
 
       - name: Build images
-        run: docker compose build --no-cache
+        run: docker compose build --no-cache --build-arg NEXT_PUBLIC_GIT_HASH=$(git rev-parse --short HEAD)
 
       - name: Start services
         run: docker compose up -d

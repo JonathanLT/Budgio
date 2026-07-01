@@ -9,6 +9,8 @@ COPY packages/ ./packages/
 COPY apps/web/ ./apps/web/
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_GIT_HASH
+ENV NEXT_PUBLIC_GIT_HASH=$NEXT_PUBLIC_GIT_HASH
 RUN cd apps/web && npm run build
 
 FROM node:20-alpine
